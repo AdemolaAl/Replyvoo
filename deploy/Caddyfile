@@ -1,0 +1,21 @@
+# Caddy: automatic HTTPS (Let's Encrypt) in front of Replyvoo.
+# Used by docker-compose.yml (profile "https"). DOMAIN comes from the environment.
+# On a plain VPS without Docker, replace {$DOMAIN} with your domain and app:3000 with 127.0.0.1:3000.
+
+{$DOMAIN} {
+	# Replyvoo already gzips its responses, so no "encode" here.
+	request_body {
+		max_size 8MB
+	}
+	reverse_proxy app:3000 {
+		# Caddy replaces any client-sent X-Forwarded-For with the real client IP by default.
+		transport http {
+			read_timeout 90s
+		}
+	}
+}
+
+# Redirect www to the bare domain.
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}

@@ -1,0 +1,12 @@
+{
+  "name": "Replyvoo",
+  "short_name": "Replyvoo",
+  "description": "AI sales and support agents that answer your customer chats in seconds. Live on Telegram; WhatsApp, Instagram and TikTok coming soon.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FFC21A",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

@@ -1,0 +1,36 @@
+# systemd unit for Replyvoo.
+# Install:  sudo cp deploy/replyvoo.service /etc/systemd/system/replyvoo.service
+#           sudo systemctl daemon-reload && sudo systemctl enable --now replyvoo
+# Logs:     sudo journalctl -u replyvoo -f
+# Assumes the code is in /opt/replyvoo, owned by the "replyvoo" user, and Node is /usr/bin/node.
+# The app reads /opt/replyvoo/.env itself.
+
+[Unit]
+Description=Replyvoo (AI Closers for Telegram)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=replyvoo
+Group=replyvoo
+WorkingDirectory=/opt/replyvoo
+Environment=NODE_ENV=production
+Environment=TZ=UTC
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning src/server.js
+Restart=always
+RestartSec=3
+# The app closes the database cleanly on SIGTERM (waits up to 8 s).
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+# Hardening: the app may only write to data/ and backups/.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/replyvoo/data /opt/replyvoo/backups
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

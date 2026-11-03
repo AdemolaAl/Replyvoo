@@ -1,0 +1,61 @@
+# Replyvoo with Docker Compose.
+#
+#   cp .env.example .env        # then edit .env
+#   docker compose up -d --build
+#   docker compose exec app npm run seed
+#
+# Optional automatic HTTPS with Caddy (needs ports 80 + 443 free and DNS pointing here):
+#   DOMAIN=replyvoo.com docker compose --profile https up -d --build
+#
+# Full guide: docs/DEPLOYMENT.md (Path B)
+
+services:
+  app:
+    build: .
+    image: replyvoo:latest
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      # Inside the container the database always lives on the "replyvoo-data" volume.
+      DATABASE_PATH: /app/data/replyvoo.db
+    volumes:
+      - replyvoo-data:/app/data
+      - replyvoo-backups:/app/backups
+    ports:
+      # Only reachable from this server. Put Nginx or Caddy in front for HTTPS.
+      - "127.0.0.1:3000:3000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      DOMAIN: ${DOMAIN:-replyvoo.com}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  replyvoo-data:
+  replyvoo-backups:
+  caddy-data:
+  caddy-config:

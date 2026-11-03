@@ -1,0 +1,32 @@
+{
+  "voice": "Hope (ElevenLabs, eleven_v4)",
+  "voice_id": "uYXf8XasLslADfZ2MB4u",
+  "files": {
+    "s1": true,
+    "s2": true,
+    "s3": true,
+    "s4": true,
+    "s5": true,
+    "d0": true,
+    "d1": true,
+    "d2": true,
+    "d3": true,
+    "d4": true,
+    "d5": true,
+    "d6": true
+  },
+  "lines": {
+    "s1": "Hey, welcome to Agent Studio! I'm gonna walk you through this. So, step one... pick a role for your Closer. Sales, support, bookings, or looking after your group. And don't worry, you can change it any time.",
+    "s2": "Okay, step two. Give it a personality! Pick a name your customers will love, then just slide to set the tone. Friendly or formal, short or detailed. And watch the sample reply change as you go.",
+    "s3": "Now, step three is the big one. Teach it! Add the questions your customers ask, with your answers. Your products and prices, how delivery and payment work... Honestly, just write it the way you'd say it in chat.",
+    "s4": "Step four, set the rules. Tell your Closer what it should never say or promise, and when to hand a chat over to your team. You know, like an angry customer, a refund, or a really big order.",
+    "s5": "And last step... test and launch! Tap the test questions, fix any answer that's not quite right, and watch your training score climb. When you're happy, flip it live. You've got this!",
+    "d0": "So, meet Glow Labs! Let's train their AI Closer, Ace... in about thirty seconds.",
+    "d1": "First, a personality. Friendly, short... and just one emoji.",
+    "d2": "Now we teach it, just like a new hire. One question, one answer.",
+    "d3": "A customer asks... and Ace replies with exactly what you taught it. In seconds.",
+    "d4": "Oops, a wrong answer? No stress. Tap “fix this answer”, and write the right one.",
+    "d5": "And next time? Ace gets it right. Every single time.",
+    "d6": "Training score... ninety-two. Flip the switch, and that's it. Ace is live, selling for you around the clock!"
+  }
+}

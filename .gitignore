@@ -1,0 +1,26 @@
+# Dependencies (there are none today, but just in case)
+node_modules/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Database and backups (never commit customer data)
+data/
+backups/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Logs and OS junk
+*.log
+logs/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

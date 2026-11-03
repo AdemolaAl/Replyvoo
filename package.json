@@ -1,0 +1,22 @@
+{
+  "name": "replyvoo",
+  "version": "1.8.0",
+  "private": true,
+  "description": "Replyvoo by Zedapex: AI Closers that answer Telegram customers in seconds. Website, dashboard, admin panel and API in one zero-dependency Node.js app.",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch src/server.js",
+    "seed": "node --disable-warning=ExperimentalWarning scripts/seed.js",
+    "create-admin": "node --disable-warning=ExperimentalWarning scripts/create-admin.js",
+    "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/",
+    "check": "node --disable-warning=ExperimentalWarning scripts/check.js",
+    "backup": "node --disable-warning=ExperimentalWarning scripts/backup.js",
+    "make-voice": "node scripts/make-voice.js"
+  },
+  "license": "UNLICENSED",
+  "author": "Zedapex"
+}

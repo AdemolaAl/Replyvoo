@@ -1,0 +1,19 @@
+# Replyvoo backups. Install for the app user:  sudo crontab -u replyvoo deploy/backup.cron
+# (or paste these lines into "sudo crontab -u replyvoo -e").
+# "npm run backup" writes /opt/replyvoo/backups/replyvoo-YYYYMMDD-HHMM.db and keeps the newest 14.
+# A backup that only lives on the same server is NOT a backup. Copy it off the server too.
+
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin
+
+# 02:15 every day: hot backup of the SQLite database (safe while the app runs)
+15 2 * * * cd /opt/replyvoo && node --disable-warning=ExperimentalWarning scripts/backup.js >> /opt/replyvoo/backups/backup.log 2>&1
+
+# 02:45 every day: copy backups off the server. Pick ONE and set it up first:
+#  a) rclone to S3 / Backblaze B2 / Google Drive (run "rclone config" once, remote named "offsite"):
+# 45 2 * * * rclone copy /opt/replyvoo/backups offsite:replyvoo-backups --include "*.db" >> /opt/replyvoo/backups/backup.log 2>&1
+#  b) rsync to another server you control (needs an SSH key without a passphrase):
+# 45 2 * * * rsync -a /opt/replyvoo/backups/ backup@your-other-server:/srv/replyvoo-backups/ >> /opt/replyvoo/backups/backup.log 2>&1
+
+# Docker users: run this on the host instead (as root):
+# 15 2 * * * cd /opt/replyvoo && docker compose exec -T app npm run backup >> /var/log/replyvoo-backup.log 2>&1
