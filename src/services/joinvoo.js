@@ -358,5 +358,117 @@ function importNotes(link, b) {
   return { ok: true, closer_id: c.id, created };
 }
 
+// ---------- Update 68: "Set up your AI" without leaving Joinvoo ----------
+// Joinvoo's wizard reads and writes the basics of the Closer that answers one bot or manager account: what the business sells,
+// the link people should get, how it talks, its language, on/off. Replyvoo is the only place they are kept (Joinvoo stores none
+// of them), so whatever the owner changes in Replyvoo's Studio shows in Joinvoo next time. Everything else (scripts, follow-ups,
+// training) stays in Replyvoo ("Advanced settings").
+const TONES = { friendly: { tone: 20, length: 45, emoji: 40 }, professional: { tone: 80, length: 55, emoji: 10 }, short: { tone: 50, length: 15, emoji: 10 } };
+const BASIC_LANGS = ['auto', 'en', 'es', 'fr', 'pt', 'ar', 'hi', 'id', 'ru', 'sw', 'th', 'tr', 'vi', 'de', 'it'];
+/** The tone the wizard shows for a persona (the same cut-offs the AI prompt uses); "custom" when it was tuned in the Studio. */
+function toneOf(p) {
+  p = p || {}; const t = Number(p.tone ?? 30), l = Number(p.length ?? 40);
+  if (t > 65) return 'professional';
+  if (l < 25) return 'short';
+  if (t < 40) return 'friendly';
+  return 'custom';
+}
+const SELL_RE = /^What we sell:[ \t]*(.*)$/m;
+const sellsOf = knowledge => { const m = SELL_RE.exec(String(knowledge || '')); return m ? m[1].trim() : ''; };
+function withSells(knowledge, sells) {
+  const k = String(knowledge || '');
+  if (!sells) return k.replace(SELL_RE, '').replace(/^\s+/, '');
+  const line = 'What we sell: ' + sells;
+  return SELL_RE.test(k) ? k.replace(SELL_RE, () => line) : (k ? line + '\n\n' + k : line);
+}
+const studioUrl = closerId => config.appUrl + '/auth/voosquare?return_to=' + encodeURIComponent(closerId ? '/app/studio?id=' + closerId : '/app/closers');
+function ownerOrThrow(link) {
+  const u = userOf(link); if (!u) throw new HttpError(404, 'This Voo account has no Replyvoo account yet.', { reason: 'no_account', status: status(link) });
+  const w = workspaceOf(u); if (!w) throw new HttpError(404, 'Open Replyvoo once to finish setting up your account.', { reason: 'no_workspace', status: status(link) });
+  return { u, w };
+}
+/** The Closer for this bot/account: the one its channel uses, else the workspace's first (active first). */
+function closerFor(w, ch) {
+  if (ch && ch.closer_id) { const c = db.one('SELECT * FROM closers WHERE id = ? AND workspace_id = ?', ch.closer_id, w.id); if (c) return c; }
+  return db.one('SELECT * FROM closers WHERE workspace_id = ? ORDER BY active DESC, id LIMIT 1', w.id) || null;
+}
+function basicsOut(link, w, c, ch) {
+  const p = c ? db.json(c.persona, {}) : {};
+  return { ok: true, account: true, workspace: true, configured: !!c,
+    basics: c ? { sells: sellsOf(c.knowledge), link: c.pay_link || '', tone: toneOf(p), lang: BASIC_LANGS.includes(p.lang) ? p.lang : 'auto', on: !!c.active } : null,
+    closer: c ? { id: c.id, name: c.name, active: !!c.active, locked: !ws.closerUnlocked(c), updated_at: c.updated_at } : null,
+    channel: ch ? { on: ch.status === 'active', closer_id: ch.closer_id || null } : null,
+    advanced_url: studioUrl(c && c.id), status: status(link) };
+}
+function getBasics(link, b) {
+  const { w } = ownerOrThrow(link);
+  const ch = channelOf(link, b || {});
+  return basicsOut(link, w, closerFor(w, ch), ch);
+}
+function saveBasics(link, b) {
+  const { u, w } = ownerOrThrow(link);
+  const x = (b && b.basics) || {};
+  const sells = String(x.sells == null ? '' : x.sells).replace(/[\r\n]+/g, ' ').replace(/[\u0000-\u001F]/g, '').trim();
+  if (sells.length > 500) throw new HttpError(400, 'Keep “What do you sell?” under 500 characters.', { reason: 'too_long', field: 'sells' });
+  if (!sells) throw new HttpError(400, 'Tell your AI what you sell or promote.', { reason: 'required', field: 'sells' });
+  const payLink = String(x.link == null ? '' : x.link).trim();
+  if (payLink.length > 500) throw new HttpError(400, 'That link is too long.', { reason: 'too_long', field: 'link' });
+  if (payLink) { let ok = false; try { const pu = new URL(payLink); ok = (pu.protocol === 'https:' || pu.protocol === 'http:') && !!pu.hostname && !/\s/.test(payLink); } catch { ok = false; } if (!ok) throw new HttpError(400, 'Your link must start with https://', { reason: 'bad_link', field: 'link' }); }
+  const tone = TONES[x.tone] ? x.tone : null; // "custom" / missing: keep what Replyvoo has
+  const lang = BASIC_LANGS.includes(x.lang) ? x.lang : null;
+  const ch = channelOf(link, b || {});
+  const t = db.now();
+  let c = closerFor(w, ch), created = false;
+  if (!c) {
+    const persona = { ...(TONES[tone || 'friendly']), human: true, ...(lang && lang !== 'auto' ? { lang } : {}) };
+    const id = db.insert('closers', { workspace_id: w.id, name: 'Ava', template: 'sales', persona: JSON.stringify(persona), skills: JSON.stringify({ paylink: true, vision: true, handoff: true, upsell: true }),
+      instructions: '', knowledge: withSells('', sells), pay_link: payLink, rules: JSON.stringify(require('./training').cleanRules({ handoff: { angry: true, refund: true, human: true, legal: false, order_over: 0, keywords: [] } })),
+      active: b && b.on === false ? 0 : 1, created_at: t, updated_at: t });
+    c = db.one('SELECT * FROM closers WHERE id = ?', id); created = true;
+    ws.event(w.id, 'closer', c.name + ' joined your team (set up from Joinvoo)', { closer_id: c.id });
+  } else {
+    const p = db.json(c.persona, {});
+    if (tone) Object.assign(p, TONES[tone]);
+    if (lang) { if (lang === 'auto') delete p.lang; else p.lang = lang; }
+    const skills = db.json(c.skills, {}); if (payLink) skills.paylink = true;
+    const patch = { persona: JSON.stringify(p), skills: JSON.stringify(skills), knowledge: withSells(c.knowledge, sells).slice(0, 60000), pay_link: payLink, updated_at: t };
+    if (b && b.on === true) patch.active = 1;
+    db.update('closers', c.id, patch);
+    c = db.one('SELECT * FROM closers WHERE id = ?', c.id);
+    ws.event(w.id, 'closer', 'Your AI basics for ' + c.name + ' were updated from Joinvoo.', { closer_id: c.id });
+  }
+  try { require('./training').saveVersion(c, u.id, 'Saved from Joinvoo'); } catch (e) { console.warn('[joinvoo] version', e.message); }
+  if (ch && !ch.closer_id) db.update('channels', ch.id, { closer_id: c.id });
+  db.run("UPDATE channels SET closer_id = ? WHERE workspace_id = ? AND type IN ('joinvoo_bot', 'joinvoo_account') AND closer_id IS NULL", c.id, w.id);
+  const st = w.settings.setup || {}; ws.saveSettings(w.id, { setup: { ...st, closer_id: st.closer_id || c.id, step: Math.max(3, Number(st.step) || 2), from: st.from || 'joinvoo' }, ...(w.settings.niche ? {} : { niche: sells.slice(0, 60) }) });
+  return { ...basicsOut(link, w, c, channelOf(link, b || {})), created };
+}
+/** One "Connect" tap in Joinvoo (the customer agreed there): a free Replyvoo account for this Voo ID, or the workspace an existing
+ * account was missing. Only with an email Joinvoo has confirmed, and never on top of another Replyvoo account with that email (that
+ * one is connected the usual way, by opening Replyvoo with the Voo login, which checks the email with VooSquare). */
+function createAccount(link, b) {
+  if (!b || b.consent !== true) throw new HttpError(400, 'The customer has to agree first.', { reason: 'consent' });
+  const any = db.one('SELECT * FROM users WHERE voo_id = ?', link.voo_id);
+  if (any && any.suspended) throw new HttpError(403, 'This Replyvoo account is suspended. Contact Replyvoo support.', { reason: 'suspended' });
+  let u = any, created = false;
+  if (!u) {
+    const email = String(b.email || '').trim().toLowerCase().slice(0, 200);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || b.email_verified !== true) throw new HttpError(409, 'Open Replyvoo once with your Voo login to finish.', { reason: 'need_login', status: status(link) });
+    if (db.one('SELECT id FROM users WHERE email = ?', email)) throw new HttpError(409, 'You already have a Replyvoo account with this email. Open Replyvoo once with your Voo login to connect it.', { reason: 'email_exists', status: status(link) });
+    const name = String(b.name || '').replace(/[\u0000-\u001F<>]/g, '').trim().slice(0, 80) || email.split('@')[0];
+    const country = /^[A-Za-z]{2}$/.test(String(b.country || '')) ? String(b.country).toUpperCase() : '';
+    try {
+      const id = db.insert('users', { email, name, password_hash: '', email_verified: 1, voo_id: link.voo_id, voo_linked_at: db.now(), country, moji: '{}', created_at: db.now() });
+      u = db.one('SELECT * FROM users WHERE id = ?', id); created = true;
+    } catch (e) { u = db.one('SELECT * FROM users WHERE voo_id = ?', link.voo_id); if (!u) throw e; } // made a moment ago by another call
+    db.insert('audit', { user_id: u.id, action: 'joinvoo.account', data: JSON.stringify({ consent_at: Number(b.consent_at) || Date.now(), terms: String(b.terms || '').slice(0, 40), link_id: link.link_id }), created_at: db.now() });
+  }
+  if (!workspaceOf(u)) require('./voosquare').ensureWorkspace(u);
+  if (!workspaceOf(u)) throw new HttpError(409, 'Open Replyvoo once to finish setting up your account.', { reason: 'no_workspace', status: status(link) });
+  if (created) { try { require('./mailer').send(u.email, 'welcome', { name: String(u.name || '').split(' ')[0] || 'there', dashboard_url: config.appUrl + '/app' }); } catch (e) { console.warn('[joinvoo] welcome', e.message); } }
+  return { ok: true, created, status: status(link) };
+}
+
 module.exports = { cfg, enabled, verify, signature, saveLink, switchBot, status, canAnswer, channelFor, channelOf, userOf, workspaceOf, relay, typing, file, fallback, linkOfChannel, describe, mediaMeta, cleanContext, addHistory, KIND, openUrl,
-  JV_TYPES, isJvType, viaLabel, connections, disconnect, catalog, purchase, purchaseStatus, refundToJoinvoo, retryRefunds, settlement, importNotes };
+  JV_TYPES, isJvType, viaLabel, connections, disconnect, catalog, purchase, purchaseStatus, refundToJoinvoo, retryRefunds, settlement, importNotes,
+  TONES, BASIC_LANGS, toneOf, sellsOf, withSells, getBasics, saveBasics, createAccount };

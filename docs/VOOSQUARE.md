@@ -122,3 +122,25 @@ webhook is ever set. Signatures: HMAC-SHA256 over direction, time, nonce, method
 nonce repeats; one link reaches only its own bots. Answers carry `reason` (`out_of_credits`, `no_closer`, `not_switched`, `paused`), and
 Replyvoo calls `/fallback` when a reply fails later, so Joinvoo's Team inbox takes the chat. Billing is unchanged: these chats are normal
 conversations on the workspace's plan and credits (30 free on Spark). Set `JOINVOO_URL` and `JOINVOO_BRIDGE_SECRET` to switch it on.
+
+### 8a. "Set up your AI" from inside Joinvoo (Update 68)
+
+Joinvoo can show a 4-step wizard (what you sell, the link people get, how it talks, review → "Switch on AI") and a Replyvoo plan card,
+behind its own `replyvoo_setup` feature flag. Replyvoo stays the **only** place these settings live: Joinvoo reads and writes them over
+the same signed bridge and stores none of them, so anything changed in the Studio shows in Joinvoo next time. Code: the Update 68 block
+in `src/services/joinvoo.js`; tests `test/joinvoo-setup.test.js`. No new migration and **no new environment variable**.
+
+| Route (server-to-server, signed with the link's secret) | What it does |
+| --- | --- |
+| `POST /hooks/joinvoo/basics` | `{ bot_id \| account_id }` → the basics of the Closer for that bot: `sells` (the `What we sell:` line of its knowledge), `link` (its payment link), `tone` (`friendly`, `professional`, `short`, or `custom` when tuned in the Studio), `lang` (`auto` or a code), `on`; plus `advanced_url` (Studio, logged in with the Voo login) and the plan `status` |
+| `POST /hooks/joinvoo/basics/save` | Saves them. Makes the Closer if the workspace has none (Sales job, name Ava). Only the `What we sell:` line, the payment link, the tone sliders and the language change: the name, other knowledge, rules, scripts and style examples are kept. `tone: "custom"` keeps the Studio tone. Limits: 500 characters, `https://` links only. 20 a minute per link |
+| `POST /hooks/joinvoo/account` | The customer tapped "Connect" in Joinvoo (`consent: true`): a free Replyvoo account for this Voo ID with the email Joinvoo confirmed, or the missing workspace. Refused (`email_exists`, `need_login`) when another Replyvoo account has that email or the email isn't confirmed: then the customer opens Replyvoo with the Voo login as before. The consent is written to `audit` (`joinvoo.account`). 5 a minute per link |
+
+The language picked in Joinvoo is stored as `persona.lang` and kept when the Closer is saved in the Studio. With a language the AI starts in
+that language and still switches when the customer clearly writes in another one; without one it answers in the customer's language as before.
+Plans and paying with Joinvoo credits use the routes that already existed (`/hooks/joinvoo/catalog`, `/purchase`, `/purchase-status`, refunds
+back to Joinvoo): nothing changed there.
+
+Deploy order for Update 68: deploy this Replyvoo branch **first**, then Joinvoo. Rollback: redeploy the previous Replyvoo build (Joinvoo's
+wizard then shows "Replyvoo isn't answering right now" and nothing else changes); Closers made or edited from Joinvoo stay as normal Closers.
+

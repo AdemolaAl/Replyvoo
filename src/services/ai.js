@@ -39,6 +39,8 @@ function customerBlock(c) {
   return lines.length ? 'ABOUT THIS CUSTOMER (from earlier chats):\n- ' + lines.join('\n- ') : '';
 }
 
+// Update 68: a reply language picked in Joinvoo's “Set up your AI” (persona.lang); none means the customer's own language.
+const LANG_NAMES = { en: 'English', es: 'Spanish', fr: 'French', pt: 'Portuguese', ar: 'Arabic', hi: 'Hindi', id: 'Indonesian', ru: 'Russian', sw: 'Swahili', th: 'Thai', tr: 'Turkish', vi: 'Vietnamese', de: 'German', it: 'Italian' };
 function systemPrompt(closer, business, channel, customer) {
   const t = catalog.template(closer.template);
   const p = closer.persona || {};
@@ -50,7 +52,7 @@ function systemPrompt(closer, business, channel, customer) {
     'You are ' + closer.name + ', the ' + t.role + ' for ' + (business || 'this business') + ', chatting with customers ' + (channel === 'website' ? 'in the chat window on the business’s website' : channel === 'whatsapp' ? 'on WhatsApp' : 'on Telegram') + '.',
     t.brief,
     'Tone: ' + tone + '. ' + length + ' ' + emoji,
-    'Always reply in the same language the customer writes in.',
+    p.lang && LANG_NAMES[p.lang] ? 'Reply in ' + LANG_NAMES[p.lang] + '. If the customer clearly writes in another language, reply in their language instead.' : 'Always reply in the same language the customer writes in.',
     'Only state facts (prices, stock, policies, delivery times, links) that appear in the KNOWLEDGE section. If the answer is not there, say you will check with the team, and end your message with the marker [HANDOFF].',
     'Never invent discounts, prices, guarantees or promises. Never promise financial returns or profits. Never ask for passwords, card numbers or one-time codes.',
     'If someone asks whether they are talking to a bot or a human, be honest that you are an AI assistant for the business.',

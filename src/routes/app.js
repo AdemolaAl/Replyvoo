@@ -75,6 +75,10 @@ function cleanCloser(b, existing = {}) {
   // Human-like replies (typing pauses, two short messages when natural) are on unless switched off.
   p.human = persona.human !== false && persona.human !== 'false';
   const style = str(persona.style, 3000); if (style) p.style = style;
+  // Update 68: the reply language picked in Joinvoo's “Set up your AI” (the Studio has no language box, so a save there keeps it).
+  const prevLang = (typeof existing.persona === 'string' ? db.json(existing.persona, {}) : existing.persona || {}).lang;
+  const lang = persona.lang !== undefined ? persona.lang : prevLang;
+  if (require('../services/joinvoo').BASIC_LANGS.includes(lang) && lang !== 'auto') p.lang = lang;
   const out = {
     name: str(b.name, 40) || existing.name || catalog.template(tplId).name, template: tplId,
     persona: JSON.stringify(p),

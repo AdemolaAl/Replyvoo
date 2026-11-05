@@ -4,6 +4,9 @@
  *   POST /hooks/joinvoo/link     Joinvoo gives this Voo ID its own link secret (signed with the shared bridge secret)
  *   POST /hooks/joinvoo/status   plan, free chats left, out of credits (for the line under the bot in Joinvoo)
  *   POST /hooks/joinvoo/bot      switch one bot on (Replyvoo answers) or off (back to Joinvoo's Team inbox)
+ *   POST /hooks/joinvoo/basics       Update 68: the AI basics (what you sell, link, tone, language, on) of the Closer for one bot/account
+ *   POST /hooks/joinvoo/basics/save  Update 68: save them from Joinvoo's "Set up your AI" wizard (Replyvoo stays the only place they live)
+ *   POST /hooks/joinvoo/account      Update 68: one "Connect" tap in Joinvoo makes the free Replyvoo account for this Voo ID
  *   POST /hooks/joinvoo/update   one private-chat update for a switched bot: message, photo, voice, file, sticker,
  *                                button press, Start, blocked, or new context (a deposit). Answered in milliseconds;
  *                                the Closer replies right after, through Joinvoo.
@@ -59,6 +62,11 @@ module.exports = function (app) {
   app.post('/hooks/joinvoo/purchase', req => { const link = jv.verify(req); limit(link, 'purchase', 30, 60e3); return jv.purchase(link, req.body || {}); });
   app.post('/hooks/joinvoo/purchase-status', req => { const link = jv.verify(req); limit(link, 'pstatus', 120, 60e3); return jv.purchaseStatus(link, req.body || {}); });
   // Moving from Joinvoo AI: its notes (about, offer, steps, links, tone, never say, hand-over) become the workspace's Closer knowledge.
+  // Update 68: "Set up your AI" inside Joinvoo. The basics of the Closer for one bot/account (read, save), and the free account made with
+  // one "Connect" tap there. Advanced settings stay here in Replyvoo; Joinvoo keeps none of these settings.
+  app.post('/hooks/joinvoo/basics', req => { const link = jv.verify(req); limit(link, 'basics', 60, 60e3); return jv.getBasics(link, req.body || {}); });
+  app.post('/hooks/joinvoo/basics/save', req => { const link = jv.verify(req); limit(link, 'bsave', 20, 60e3); return jv.saveBasics(link, req.body || {}); });
+  app.post('/hooks/joinvoo/account', req => { const link = jv.verify(req); limit(link, 'account', 5, 60e3); return jv.createAccount(link, req.body || {}); });
   app.post('/hooks/joinvoo/import', req => { const link = jv.verify(req); limit(link, 'import', 10, 60e3); return jv.importNotes(link, req.body || {}); });
 
   app.post('/hooks/joinvoo/update', async req => {
