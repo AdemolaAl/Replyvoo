@@ -15,7 +15,7 @@ It is **not live-proven** in three places, because those need real accounts:
 2. A real Bachs payment. The Bachs request and answer formats copy Castvoo's Bachs code and have never been tried against Bachs's live API.
 3. The live VooSquare product credentials.
 
-## What changed
+## What changednn
 
 ### 1. Bugs and blockers fixed (found in the audit)
 - **Made-up live counter.** The homepage said "2,418 replies sent by Closers in the last hour" and added random numbers every second. It now shows the **real** count of Closer replies in the last hour, and only once it reaches the minimum set in Admin → Homepage → Live counter (default 50). Below that, it is hidden.
